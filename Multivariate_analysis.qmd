@@ -1,0 +1,2586 @@
+---
+title: "Multivariate analysis and modeling of helical milling process of super duplex steel"
+author: "José Veríssimo Ribeiro de Toledo, Thaís Fernanda Pires, Robson Bruno Dutra Pereira, João Roberto Ferreira"
+format: html
+editor: visual
+---
+
+## Multivariate analysis
+
+Multivariate analysis performed for dimensionality reduction in the output or response space for the work *A multi-objective robust evolutionary optimization approach applied to the multivariate helical milling process of super duplex steel*.
+
+### Libraries
+
+Loading libraries:
+
+```{r message=FALSE}
+library(psych)
+library(GPArotation)
+library(corrplot)
+library(FactoMineR)
+library(factoextra)
+library(ggplot2) 
+library(GGally)
+library(Hmisc)
+library(ClustOfVar)
+library(ClustVarLV)
+library(MVN)
+```
+
+### Reading data
+
+Reading response data:
+
+```{r}
+respostas <- read.csv("resultados.csv", header = T)
+respostas <- respostas[,1:6]
+```
+
+### Multivariate summary
+
+Descriptive summary:
+
+```{r}
+summary(respostas)
+head(respostas)
+```
+
+Mean vector:
+
+```{r}
+medias <- colMeans(respostas)
+medias
+```
+
+Covariance matrix:
+
+```{r}
+cvar <- var(respostas)
+cvar
+```
+
+Correlation matrix:
+
+```{r}
+r <- cor(respostas)
+round(r,2)
+```
+
+Correlation matrix and pvalues:
+
+```{r}
+r2 <- rcorr(as.matrix(respostas),type=c("pearson"))
+round(r2$P,2)
+```
+
+Correlation test:
+
+```{r}
+r1 <- cor.mtest(respostas, conf.level = .95)
+r1
+```
+
+Visualizing correlation:
+
+```{r}
+ggpairs(respostas) + theme_bw()
+```
+
+### Assumptions and initial tests
+
+Sphericity test: 
+
+```{r}
+cortest.bartlett(r, n=47) 
+```
+
+Parallel analysis:
+
+```{r}
+fa.parallel(r, n.obs=47,fm="pa", fa = "fa", n.iter=1, main = "",
+            show.legend = F)
+legend("topright", c("Actual data", "Simulated"), pch = c(2, NA), lty = c(1,3),
+       col = c("blue", "red"), cex = 0.8,inset=.1, box.lty = 0)
+```
+
+Kayser-Meyer–Olkin adequacy test:
+
+```{r}
+KMO(r)
+```
+
+### Factor analysis
+
+Factor analysis with principal axis extraction and varimax rotation:
+
+```{r}
+fa1 <- fa(respostas, nfactors=3, n.obs=47, fm="pa", rotate="varimax",max.iter = 1)
+fa1
+```
+
+Scores of the estimated factors:
+
+```{r}
+f <- factor.scores(respostas, fa1, Phi = NULL, Thurstone, rho=NULL)
+head(f$scores)
+```
+
+# Modeling
+
+Modeling performed in the factor scores.
+
+Loading libraries:
+
+```{r message=FALSE}
+library(rsm)
+library(olsrr)
+library(ggplot2)
+library(ggpubr)
+library(NlcOptim)
+```
+
+Central composite design:
+
+```{r}
+plan.ccd <- ccd(~x1+x2+x3+z1+z2,
+                generators = z3~x1*x2*x3*z1*z2,
+                n0 = c(0,9),
+                alpha = "rotatable",
+                randomize = F,
+                oneblock = T,
+                coding = list(x1~(fza-0.15)/0.05,
+                              x2~(fzt-0.15)/0.05,
+                              x3~(vc-50)/15,
+                              z1~(lto-29)/2,
+                              z2~(lb)/1,
+                              z3~(Q)/1))
+plan.ccd <- rbind(plan.ccd[1:38,],plan.ccd[45:53,])               
+plan.ccd
+```
+
+Factor associated to roughness outputs:
+
+```{r}
+plan.ccd$Pa1 <- f$scores[,1]
+```
+
+Ordinary least squares response surface model for PA1:
+
+```{r}
+res.Pa1 <- lm(formula = Pa1 ~ x1+x2+x3+z1+z2+z3 + 
+               x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + + I(x1^2) + I(x2^2) + I(x3^2), 
+             data = plan.ccd)
+```
+
+Normality assumption for PA1:
+
+```{r}
+shapiro.test(res.Pa1$residuals)
+
+par(mfrow = c(2, 2))
+plot(res.Pa1)
+par(mfrow = c(1, 1))
+```
+
+Weighted least squares response surface model for PA1:
+
+```{r}
+w.Pa1 <- 1/res.Pa1$residuals^2
+
+# wls
+res.Pa1.w <- lm(formula = Pa1 ~ x1+x2+x3+z1+z2+z3 + 
+                 x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + I(x1^2) + I(x2^2) + I(x3^2), 
+               data = plan.ccd, 
+               weights = w.Pa1)
+summary(res.Pa1.w)
+```
+
+Main effects plots for PA1:
+
+```{r}
+x1_grid <- seq(min(plan.ccd$x1), max(plan.ccd$x1), 0.1)
+pp1 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fza vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp2 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fzt vs Pa1') +
+  xlab('fzt') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp3 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('vc vs Pa1') +
+  xlab('vc') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+z1_grid <- seq(min(plan.ccd$z1), max(plan.ccd$z1), 0.1)
+
+pp4 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = z1_grid, 
+                                                                         z2 = 0,
+                                                                         z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lto vs Pa1') +
+  xlab('lto') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(27, 29, 31)) + 
+  theme_bw()
+
+pp5 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = z1_grid,
+                                                                         z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lb vs Pa1') +
+  xlab('lb') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+pp6 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = z1_grid)))),
+            colour = 'sienna2') +
+  ggtitle('Q vs Pa1') +
+  xlab('Q') +
+  ylab('Pa1') + 
+  ylim(-1.2,2) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+ggarrange(pp1, pp2, pp3, pp4, pp5, pp6)
+
+```
+
+Interaction plots for PA1:
+
+```{r}
+# fza vs fzt
+pp_12a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0.15', linetype = '0.15')) +
+  ggtitle('fza,fzt vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_12 <- pp_12a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = -1, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0.10', linetype = '0.10')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 1, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0.20', linetype = '0.20')) + 
+  scale_color_manual(name = "fzt", 
+                     values = c("0.10" = "orange2", 
+                                "0.15" = "olivedrab3", 
+                                "0.20" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "fzt", 
+                        values = c("0.10" = "dashed", 
+                                   "0.15" = "longdash", 
+                                   "0.20" = "solid"))
+
+# fza vs vc
+pp_13a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fza,vc vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_13 <- pp_13a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = -1, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 1, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+# fzt vs vc
+pp_23a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fzt,vc vs Pa1') +
+  xlab('fzt') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_23 <- pp_23a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = -1, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 1, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+# fza vs lto
+pp_14a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fza,lto vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_14 <- pp_14a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = -1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+# fza vs lb
+pp_15a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,lb vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_15 <- pp_15a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = -1,
+                                                                         z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 1,
+                                                                         z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+# fza vs Q
+pp_16a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,Q vs Pa1') +
+  xlab('fza') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_16 <- pp_16a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = x1_grid, 
+                                                                         x2 = 0, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+# fza vs lto
+pp_24a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fzt,lto vs Pa1') +
+  xlab('fzt') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_24 <- pp_24a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = -1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+# fzt vs lb
+pp_25a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,lb vs Pa1') +
+  xlab('fzt') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_25 <- pp_25a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = -1,
+                                                                         z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 1,
+                                                                         z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+# fzt vs Q
+pp_26a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,Q vs Pa1') +
+  xlab('fzt') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_26 <- pp_26a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = x1_grid, 
+                                                                         x3 = 0, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+# vc vs lto
+pp_34a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('vc,lto vs Pa1') +
+  xlab('vc') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_34 <- pp_34a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = -1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 1, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+# vc vs lb
+pp_35a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,lb vs Pa1') +
+  xlab('vc') +
+  ylab('Pa1') + 
+  ylim(-1.8 ,3) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_35 <- pp_35a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = -1,
+                                                                         z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 1,
+                                                                         z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+# vc vs Q
+pp_36a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,Q vs Pa1') +
+  xlab('vc') +
+  ylab('Pa1') + 
+  ylim(-1.8,3) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_36 <- pp_36a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                         x2 = 0, 
+                                                                         x3 = x1_grid, 
+                                                                         z1 = 0, 
+                                                                         z2 = 0,
+                                                                         z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+ggarrange(pp_12,pp_13,pp_23,
+          pp_14,pp_15,pp_16,
+          pp_24,pp_25,pp_26,
+          pp_34,pp_35,pp_36, ncol = 3, nrow = 4)
+```
+
+Mean and variance models data for PA1:
+
+```{r}
+mse <<- (deviance(res.Pa1.w)/df.residual(res.Pa1.w))
+
+coef <- res.Pa1.w$coefficients
+
+b0 <- coef[1]
+
+b <- c(coef[2:4])
+
+B <- matrix(c(coef[8],    coef[11]/2, coef[12]/2, 
+              coef[11]/2, coef[9],    coef[16]/2,
+              coef[12]/2, coef[16]/2, coef[10]),
+            nrow = 3,
+            ncol = 3)
+
+g <- coef[5:7]
+
+coefs_xz1 <- c(coef[13:15], coef[17:22])
+D <- matrix(coefs_xz1,
+            nrow = 3,
+            ncol = 3,
+            byrow = T)
+```
+
+Mean model of PA1:
+
+```{r}
+Pa1.mean = function(x) {b0 + t(x)%*%b + t(x)%*%B%*%x}
+```
+
+Visualizing mean model of PA1:
+
+```{r message=FALSE, warning=FALSE}
+x1 <- seq(-(2^3)^0.25, (2^3)^0.25, .2)
+x2 <- x1
+x3 <- x1
+
+xx <- expand.grid(x1,x2,x3)
+
+z1 <- apply(xx, 1, Pa1.mean)
+
+dataPa1plo11 <- cbind(xx,z1)
+colnames(dataPa1plo11) <- c("fza", "fzt", "vc", "E.Pa1")
+
+p1 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = fzt, z = E.Pa1, fill = E.Pa1)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p2 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = vc, z = E.Pa1, fill = E.Pa1)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p3 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fzt, y = vc, z = E.Pa1, fill = E.Pa1)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+```
+
+Variance model for PA1:
+
+```{r}
+Pa1.var = function(x) {mse + t(g + t(D)%*%x)%*%(g + t(D)%*%x)}
+```
+
+Visualizing variance model for PA1 (standard deviation was plotted for convenience):
+
+```{r  message=FALSE, warning=FALSE}
+ww1 <- apply(xx, 1, Pa1.var)
+
+dataPa1plo11$S.Pa1 <- sqrt(ww1)
+
+p4 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = fzt, z = S.Pa1, fill = S.Pa1)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p5 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = vc, z = S.Pa1, fill = S.Pa1)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p6 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fzt, y = vc, z = S.Pa1, fill = S.Pa1)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p1,p2,p3,p4,p5,p6)
+```
+
+RMSE function for PA1:
+
+```{r}
+ro <<- (2^3)^0.25 
+
+g_x <- function(x){
+  g1 <- x[1]^2 + x[2]^2 + x[3]^2 - ro^2
+  return(list(ceq=NULL,c=g1))
+}
+
+x0 <- rep(0, 3)
+
+target <- solnl(X = x0, objfun = Pa1.mean, confun = g_x)
+TT <<- target$fn
+
+Pa1.rmse = function(x, TT) { 
+  
+  E <- (b0 + t(x)%*%b + t(x)%*%B%*%x)
+  V <- (mse + t(g + t(D)%*%x)%*%(g + t(D)%*%x))
+  
+  rmse <- sqrt((E - TT)^2 + V)
+  return(rmse)
+}
+```
+
+Visualizing RMSE of PA1:
+
+```{r  message=FALSE, warning=FALSE}
+kk1 <- rep(0,  nrow(xx))
+
+for(i in 1: nrow(xx)){
+  x <- c(xx[i,1],xx[i,2],xx[i,3])
+  kk1[i] <- Pa1.rmse(x,TT)
+}
+
+dataPa1plo11$RMSE.Pa1 <- kk1
+
+p7 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = fzt, z = RMSE.Pa1, fill = RMSE.Pa1)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p8 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fza, y = vc, z = RMSE.Pa1, fill = RMSE.Pa1)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p9 <- ggplot(data = dataPa1plo11,
+             mapping = aes(x = fzt, y = vc, z = RMSE.Pa1, fill = RMSE.Pa1)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p7,p8,p9, nrow = 1)
+
+```
+
+Factor associated to roundness and cylindricity:
+
+```{r}
+plan.ccd$Pa2 <- f$scores[,2]
+```
+
+Ordinary least squares of PA2:
+
+```{r}
+res.Pa2 <- lm(formula = Pa2 ~ x1+x2+x3+z1+z2+z3 + 
+                x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + 
+                + I(x1^2) + I(x2^2) + I(x3^2), 
+              data = plan.ccd)
+```
+
+Normality assumption:
+
+```{r}
+shapiro.test(res.Pa2$residuals)
+
+par(mfrow = c(2, 2))
+plot(res.Pa2)
+par(mfrow = c(1, 1))
+```
+
+Weighted least squares of PA2:
+
+```{r}
+w.Pa2 <- 1/res.Pa2$residuals^2
+
+res.Pa2.w <- lm(formula = Pa2 ~ x1+x2+x3+z1+z2+z3 + 
+                  x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + 
+                  + I(x1^2) + I(x2^2) + I(x3^2), 
+                data = plan.ccd, 
+                weights = w.Pa2)
+summary(res.Pa2.w)
+```
+
+Main effects plots for PA2:
+
+```{r}
+x1_grid <- seq(min(plan.ccd$x1), max(plan.ccd$x1), 0.1)
+pp1 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fza vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp2 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fzt vs Pa2') +
+  xlab('fzt') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp3 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('vc vs Pa2') +
+  xlab('vc') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+z1_grid <- seq(min(plan.ccd$z1), max(plan.ccd$z1), 0.1)
+
+pp4 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = z1_grid, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lto vs Pa2') +
+  xlab('lto') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(27, 29, 31)) + 
+  theme_bw()
+
+pp5 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = z1_grid,
+                                                                          z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lb vs Pa2') +
+  xlab('lb') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+pp6 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = z1_grid)))),
+            colour = 'sienna2') +
+  ggtitle('Q vs Pa2') +
+  xlab('Q') +
+  ylab('Pa2') + 
+  ylim(-1.3,0.75) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+ggarrange(pp1, pp2, pp3, pp4, pp5, pp6)
+
+```
+
+Interaction plots for PA2:
+
+```{r}
+pp_12a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.15', linetype = '0.15')) +
+  ggtitle('fza,fzt vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_12 <- pp_12a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = -1, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.10', linetype = '0.10')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 1, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.20', linetype = '0.20')) + 
+  scale_color_manual(name = "fzt", 
+                     values = c("0.10" = "orange2", 
+                                "0.15" = "olivedrab3", 
+                                "0.20" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "fzt", 
+                        values = c("0.10" = "dashed", 
+                                   "0.15" = "longdash", 
+                                   "0.20" = "solid"))
+
+pp_13a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fza,vc vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_13 <- pp_13a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = -1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+pp_23a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fzt,vc vs Pa2') +
+  xlab('fzt') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_23 <- pp_23a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = -1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa1.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+pp_14a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fza,lto vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_14 <- pp_14a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_15a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,lb vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_15 <- pp_15a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_16a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,Q vs Pa2') +
+  xlab('fza') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_16 <- pp_16a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_24a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fzt,lto vs Pa2') +
+  xlab('fzt') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_24 <- pp_24a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_25a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,lb vs Pa2') +
+  xlab('fzt') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_25 <- pp_25a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_26a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,Q vs Pa2') +
+  xlab('fzt') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_26 <- pp_26a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_34a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('vc,lto vs Pa2') +
+  xlab('vc') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_34 <- pp_34a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_35a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,lb vs Pa2') +
+  xlab('vc') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_35 <- pp_35a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_36a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,Q vs Pa2') +
+  xlab('vc') +
+  ylab('Pa2') + 
+  ylim(-2,1.2) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_36 <- pp_36a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa2.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+ggarrange(pp_12,pp_13,pp_23,
+          pp_14,pp_15,pp_16,
+          pp_24,pp_25,pp_26,
+          pp_34,pp_35,pp_36, ncol = 3, nrow = 4)
+```
+
+Data for mean and variance models of PA2:
+
+```{r}
+mse2 <<- (deviance(res.Pa2.w)/df.residual(res.Pa2.w))
+
+coef2 <- res.Pa2.w$coefficients
+coef2
+
+b02 <- coef2[1]
+
+b2 <- c(coef2[2:4])
+
+B2 <- matrix(c(coef2[8],    coef2[11]/2, coef2[12]/2, 
+              coef2[11]/2, coef2[9],    coef2[16]/2,
+              coef2[12]/2, coef2[16]/2, coef2[10]),
+            nrow = 3,
+            ncol = 3)
+
+g2 <- coef2[5:7]
+
+coefs_xz12 <- c(coef2[13:15], coef2[17:22])
+D2 <- matrix(coefs_xz12,
+             nrow = 3,
+             ncol = 3,
+             byrow = T)
+```
+
+Mean model for PA2:
+
+```{r}
+Pa2.mean = function(x) {b02 + t(x)%*%b2 + t(x)%*%B2%*%x}
+```
+
+Visualizing mean model of PA2:
+
+```{r, warning=FALSE}
+x1 <- seq(-(2^3)^0.25, (2^3)^0.25, .2)
+x2 <- x1
+x3 <- x1
+
+xx <- expand.grid(x1,x2,x3)
+
+z1 <- apply(xx, 1, Pa2.mean)
+
+dataPa2plo11 <- cbind(xx,z1)
+colnames(dataPa2plo11) <- c("fza", "fzt", "vc", "E.Pa2")
+
+p1 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = fzt, z = E.Pa2, fill = E.Pa2)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p2 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = vc, z = E.Pa2, fill = E.Pa2)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p3 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fzt, y = vc, z = E.Pa2, fill = E.Pa2)) +
+  geom_tile() +
+  # scale_fill_distiller(palette = "RdYlGn",
+  #                      direction = -1) +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+```
+
+Variance model for PA2:
+
+```{r}
+Pa2.var = function(x) {mse2 + t(g2 + t(D2)%*%x)%*%(g2 + t(D2)%*%x)}
+```
+
+Visualizing variance for PA2 (standard deviation for convenience):
+
+```{r, warning=FALSE}
+ww1 <- apply(xx, 1, Pa2.var)
+
+dataPa2plo11$S.Pa2 <- sqrt(ww1)
+
+p4 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = fzt, z = S.Pa2, fill = S.Pa2)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p5 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = vc, z = S.Pa2, fill = S.Pa2)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p6 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fzt, y = vc, z = S.Pa2, fill = S.Pa2)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p1,p2,p3,p4,p5,p6)
+```
+
+RMSE function for PA2:
+
+```{r}
+target2 <- solnl(X = x0, objfun = Pa2.mean, confun = g_x)
+TT2 <<- target2$fn
+
+minvar2 <- solnl(X = x0, objfun = Pa2.var, confun = g_x)
+
+Pa2.rmse = function(x, TT) { 
+  
+  E <- (b02 + t(x)%*%b2 + t(x)%*%B2%*%x)
+  V <- (mse2 + t(g2 + t(D2)%*%x)%*%(g2 + t(D2)%*%x))
+  
+  rmse <- sqrt((E - TT)^2 + V)
+  return(rmse)
+}
+```
+
+ploting the RMSE of PA2:
+
+```{r, warning= FALSE}
+kk1 <- rep(0,  nrow(xx))
+
+for(i in 1: nrow(xx)){
+  x <- c(xx[i,1],xx[i,2],xx[i,3])
+  kk1[i] <- Pa2.rmse(x,TT)
+}
+
+dataPa2plo11$RMSE.Pa2 <- kk1
+
+p7 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = fzt, z = RMSE.Pa2, fill = RMSE.Pa2)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p8 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fza, y = vc, z = RMSE.Pa2, fill = RMSE.Pa2)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p9 <- ggplot(data = dataPa2plo11,
+             mapping = aes(x = fzt, y = vc, z = RMSE.Pa2, fill = RMSE.Pa2)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  # scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p7,p8,p9, nrow = 1)
+
+```
+
+Score related to axial and radial forces:
+
+```{r}
+plan.ccd$Pa3 <- f$scores[,3]
+```
+
+Ordinary least squares for PA3:
+
+```{r}
+res.Pa3 <- lm(formula = Pa3 ~ x1+x2+x3+z1+z2+z3 + 
+                x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + 
+                + I(x1^2) + I(x2^2) + I(x3^2), 
+              data = plan.ccd)
+```
+
+Normality assumption for PA3:
+
+```{r}
+shapiro.test(res.Pa3$residuals)
+
+par(mfrow = c(2, 2))
+plot(res.Pa3)
+par(mfrow = c(1, 1))
+```
+
+Weighted least squares for PA3:
+
+```{r}
+w.Pa3 <- 1/res.Pa3$residuals^2
+
+res.Pa3.w <- lm(formula = Pa3 ~ x1+x2+x3+z1+z2+z3 + 
+                  x1*x2+x1*x3+x1*z1+x1*z2+x1*z3+x2*x3+x2*z1+x2*z2+x2*z3+x3*z1+x3*z2+x3*z3 + 
+                  + I(x1^2) + I(x2^2) + I(x3^2), 
+                data = plan.ccd, 
+                weights = w.Pa3)
+summary(res.Pa3.w)
+
+```
+
+Main effects plots for PA3:
+
+```{r}
+x1_grid <- seq(min(plan.ccd$x1), max(plan.ccd$x1), 0.1)
+pp1 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fza vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp2 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('fzt vs Pa3') +
+  xlab('fzt') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp3 <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'mediumseagreen') +
+  ggtitle('vc vs Pa3') +
+  xlab('vc') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+z1_grid <- seq(min(plan.ccd$z1), max(plan.ccd$z1), 0.1)
+
+pp4 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = z1_grid, 
+                                                                          z2 = 0,
+                                                                          z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lto vs Pa3') +
+  xlab('lto') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(27, 29, 31)) + 
+  theme_bw()
+
+pp5 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = z1_grid,
+                                                                          z3 = 0)))),
+            colour = 'sienna2') +
+  ggtitle('lb vs Pa3') +
+  xlab('lb') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+pp6 <- ggplot() +        
+  geom_line(aes(x = z1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = z1_grid)))),
+            colour = 'sienna2') +
+  ggtitle('Q vs Pa3') +
+  xlab('Q') +
+  ylab('Pa3') + 
+  ylim(-2.5,1.5) +
+  scale_x_continuous(breaks = c(-1, 0, 1), label = c(-1, 0, 1)) + 
+  theme_bw()
+
+ggarrange(pp1, pp2, pp3, pp4, pp5, pp6)
+```
+
+Interaction plots for PA3:
+
+```{r}
+pp_12a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.15', linetype = '0.15')) +
+  ggtitle('fza,fzt vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_12 <- pp_12a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = -1, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.10', linetype = '0.10')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 1, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0.20', linetype = '0.20')) + 
+  scale_color_manual(name = "fzt", 
+                     values = c("0.10" = "orange2", 
+                                "0.15" = "olivedrab3", 
+                                "0.20" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "fzt", 
+                        values = c("0.10" = "dashed", 
+                                   "0.15" = "longdash", 
+                                   "0.20" = "solid"))
+
+pp_13a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fza,vc vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_13 <- pp_13a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = -1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+pp_23a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '50', linetype = '50')) +
+  ggtitle('fzt,vc vs Pa3') +
+  xlab('fzt') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_23 <- pp_23a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = -1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '35', linetype = '35')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 1, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '65', linetype = '65')) + 
+  scale_color_manual(name = "vc", 
+                     values = c("35" = "orange2", 
+                                "50" = "olivedrab3", 
+                                "65" = "mediumvioletred")) + 
+  scale_linetype_manual(name = "vc", 
+                        values = c("35" = "dashed", 
+                                   "50" = "longdash", 
+                                   "65" = "solid"))
+
+pp_14a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fza,lto vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_14 <- pp_14a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_15a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,lb vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_15 <- pp_15a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_16a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fza,Q vs Pa3') +
+  xlab('fza') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +   
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_16 <- pp_16a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = x1_grid, 
+                                                                          x2 = 0, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_24a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('fzt,lto vs Pa3') +
+  xlab('fzt') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_24 <- pp_24a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_25a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,lb vs Pa3') +
+  xlab('fzt') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_25 <- pp_25a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_26a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('fzt,Q vs Pa3') +
+  xlab('fzt') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  theme_bw()
+
+pp_26 <- pp_26a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = x1_grid, 
+                                                                          x3 = 0, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_34a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '29', linetype = '29')) +
+  ggtitle('vc,lto vs Pa3') +
+  xlab('vc') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) +  
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_34 <- pp_34a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = -1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '27', linetype = '27')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 1, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '31', linetype = '31')) + 
+  scale_color_manual(name = "lto", 
+                     values = c("27" = "dodgerblue", 
+                                "29" = "darkgoldenrod1", 
+                                "31" = "firebrick3")) + 
+  scale_linetype_manual(name = "lto", 
+                        values = c("27" = "dashed", 
+                                   "29" = "longdash", 
+                                   "31" = "solid"))
+
+pp_35a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,lb vs Pa3') +
+  xlab('vc') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_35 <- pp_35a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = -1,
+                                                                          z3 = 0))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 1,
+                                                                          z3 = 0))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "lb", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "lb", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+pp_36a <- ggplot() +        
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 0))),
+                colour = '0', linetype = '0')) +
+  ggtitle('vc,Q vs Pa3') +
+  xlab('vc') +
+  ylab('Pa3') + 
+  ylim(-3,1.7) + 
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  theme_bw()
+
+pp_36 <- pp_36a + 
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = -1))),
+                colour = '-1', linetype = '-1')) +
+  geom_line(aes(x = x1_grid, y = (predict(res.Pa3.w, newdata = data.frame(x1 = 0, 
+                                                                          x2 = 0, 
+                                                                          x3 = x1_grid, 
+                                                                          z1 = 0, 
+                                                                          z2 = 0,
+                                                                          z3 = 1))),
+                colour = '1', linetype = '1')) + 
+  scale_color_manual(name = "Q", 
+                     values = c("-1" = "dodgerblue", 
+                                "0" = "darkgoldenrod1", 
+                                "1" = "firebrick3")) + 
+  scale_linetype_manual(name = "Q", 
+                        values = c("-1" = "dashed", 
+                                   "0" = "longdash", 
+                                   "1" = "solid"))
+
+ggarrange(pp_12,pp_13,pp_23,
+          pp_14,pp_15,pp_16,
+          pp_24,pp_25,pp_26,
+          pp_34,pp_35,pp_36, ncol = 3, nrow = 4)
+
+```
+
+Data for mean and variance models of PA3:
+
+```{r}
+mse3 <<- (deviance(res.Pa3.w)/df.residual(res.Pa3.w))
+
+coef3 <- res.Pa3.w$coefficients
+
+b03 <- coef3[1]
+
+b3 <- c(coef3[2:4])
+
+B3 <- matrix(c(coef3[8],    coef3[11]/2, coef3[12]/2, 
+               coef3[11]/2, coef3[9],    coef3[16]/2,
+               coef3[12]/2, coef3[16]/2, coef3[10]),
+               nrow = 3,
+               ncol = 3)
+
+g3 <- coef3[5:7]
+
+coefs_xz13 <- c(coef3[13:15], coef3[17:22])
+D3 <- matrix(coefs_xz13,
+             nrow = 3,
+             ncol = 3,
+             byrow = T)
+```
+
+Mean model for PA3:
+
+```{r}
+Pa3.mean = function(x) {b03 + t(x)%*%b3 + t(x)%*%B3%*%x}
+```
+
+Visualizing mean model for PA3:
+
+```{r warning=FALSE}
+x1 <- seq(-(2^3)^0.25, (2^3)^0.25, .2)
+x2 <- x1
+x3 <- x1
+
+xx <- expand.grid(x1,x2,x3)
+
+z1 <- apply(xx, 1, Pa3.mean)
+
+dataPa3plo11 <- cbind(xx,z1)
+colnames(dataPa3plo11) <- c("fza", "fzt", "vc", "E.Pa3")
+
+p1 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = fzt, z = E.Pa3, fill = E.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p2 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = vc, z = E.Pa3, fill = E.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p3 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fzt, y = vc, z = E.Pa3, fill = E.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+```
+
+Variance model for PA3:
+
+```{r}
+Pa3.var = function(x) {mse3 + t(g3 + t(D3)%*%x)%*%(g3 + t(D3)%*%x)}
+```
+
+Visualizing variance model for PA3:
+
+```{r warning=FALSE}
+ww1 <- apply(xx, 1, Pa3.var)
+
+dataPa3plo11$S.Pa3 <- sqrt(ww1)
+
+p4 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = fzt, z = S.Pa3, fill = S.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p5 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = vc, z = S.Pa3, fill = S.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p6 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fzt, y = vc, z = S.Pa3, fill = S.Pa3)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "viridis") +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p1,p2,p3,p4,p5,p6)
+```
+
+RMSE function for PA3:
+
+```{r}
+target3 <- solnl(X = x0, objfun = Pa3.mean, confun = g_x)
+TT3 <<- target3$fn
+
+minvar3 <- solnl(X = x0, objfun = Pa3.var, confun = g_x)
+
+Pa3.rmse = function(x, TT) { 
+  
+  E <- (b03 + t(x)%*%b3 + t(x)%*%B3%*%x)
+  V <- (mse3 + t(g3 + t(D3)%*%x)%*%(g3 + t(D3)%*%x))
+  
+  rmse <- sqrt((E - TT)^2 + V)
+  return(rmse)
+}
+```
+
+Visualizing RMSE of PA3:
+
+```{r warning=FALSE}
+kk1 <- rep(0,  nrow(xx))
+
+for(i in 1: nrow(xx)){
+  x <- c(xx[i,1],xx[i,2],xx[i,3])
+  kk1[i] <- Pa3.rmse(x,TT)
+}
+
+dataPa3plo11$RMSE.Pa3 <- kk1
+
+p7 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = fzt, z = RMSE.Pa3, fill = RMSE.Pa3)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  coord_equal() + theme_bw()
+
+p8 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fza, y = vc, z = RMSE.Pa3, fill = RMSE.Pa3)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+p9 <- ggplot(data = dataPa3plo11,
+             mapping = aes(x = fzt, y = vc, z = RMSE.Pa3, fill = RMSE.Pa3)) +
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlGn",
+                       direction = -1) +
+  geom_contour(color = "grey2") +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(0.05, 0.1, 0.15, 0.2, 0.25)) + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2), label = c(20, 35, 50, 65, 80)) + 
+  coord_equal() + theme_bw()
+
+ggarrange(p7,p8,p9, nrow = 1)
+```
+
