@@ -25,6 +25,7 @@ library(Hmisc)
 library(ClustOfVar)
 library(ClustVarLV)
 library(MVN)
+library(qgraph)
 ```
 
 ### Reading data
@@ -88,7 +89,7 @@ ggpairs(respostas) + theme_bw()
 
 ### Assumptions and initial tests
 
-Sphericity test: 
+Sphericity test:
 
 ```{r}
 cortest.bartlett(r, n=47) 
@@ -103,7 +104,7 @@ legend("topright", c("Actual data", "Simulated"), pch = c(2, NA), lty = c(1,3),
        col = c("blue", "red"), cex = 0.8,inset=.1, box.lty = 0)
 ```
 
-Kayser-Meyer–Olkin adequacy test:
+Kayser-Meyer--Olkin adequacy test:
 
 ```{r}
 KMO(r)
@@ -117,6 +118,23 @@ Factor analysis with principal axis extraction and varimax rotation:
 fa1 <- fa(respostas, nfactors=3, n.obs=47, fm="pa", rotate="varimax",max.iter = 1)
 fa1
 ```
+
+Visualizing factors relationship with original responses:
+
+```{r}
+gg <- rep(c('PA1', 'PA3', 'PA2'), each = 2)
+qgraph(fa1$loadings, 
+       groups = gg, 
+       cut=.2,
+       vsize=c(7, 10),
+       borders=F,
+       vTrans=255,
+       color = c("#7FC97F", "#BEAED4", "#FDC086"),
+       posCol = "lightblue2",
+       negCol = "lightcoral")
+
+```
+
 
 Scores of the estimated factors:
 
@@ -2583,4 +2601,3 @@ p9 <- ggplot(data = dataPa3plo11,
 
 ggarrange(p7,p8,p9, nrow = 1)
 ```
-
