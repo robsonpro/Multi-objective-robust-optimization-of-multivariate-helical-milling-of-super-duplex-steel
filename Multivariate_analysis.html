@@ -2164,7 +2164,7 @@ F-statistic: 147.5 on 21 and 25 DF,  p-value: &lt; 2.2e-16</code></pre>
 <span id="cb70-12"><a href="#cb70-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(rmse)</span>
 <span id="cb70-13"><a href="#cb70-13" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>ploting the RMSE of PA2:</p>
+<p>Plotting the RMSE of PA2:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a>kk1 <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>,  <span class="fu">nrow</span>(xx))</span>
 <span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -3048,6 +3048,312 @@ F-statistic: 837.9 on 21 and 25 DF,  p-value: &lt; 2.2e-16</code></pre>
 <p><img src="Multivariate_analysis_files/figure-html/unnamed-chunk-56-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
+<section id="estimating-the-original-variables-through-factors" class="level3">
+<h3 class="anchored" data-anchor-id="estimating-the-original-variables-through-factors">Estimating the original variables through factors</h3>
+<p>Loadings to estimate the original variables:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a>L <span class="ot">&lt;-</span> <span class="fu">print</span>(fa1<span class="sc">$</span>loadings, <span class="at">cutoff=</span><span class="dv">0</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Mean and standard deviation of measured responses:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb91"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a>mean_Y <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(respostas)</span>
+<span id="cb91-2"><a href="#cb91-2" aria-hidden="true" tabindex="-1"></a>sigma_Y <span class="ot">&lt;-</span> <span class="fu">apply</span>(respostas, <span class="dv">2</span>, sd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Estimating observable response data through factor model:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb92"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a>Ra_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">1</span>]<span class="sc">*</span>sigma_Y[<span class="dv">1</span>] <span class="sc">+</span> mean_Y[<span class="dv">1</span>]</span>
+<span id="cb92-2"><a href="#cb92-2" aria-hidden="true" tabindex="-1"></a>Rz_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">2</span>]<span class="sc">*</span>sigma_Y[<span class="dv">2</span>] <span class="sc">+</span> mean_Y[<span class="dv">2</span>]</span>
+<span id="cb92-3"><a href="#cb92-3" aria-hidden="true" tabindex="-1"></a>Fz_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">3</span>]<span class="sc">*</span>sigma_Y[<span class="dv">3</span>] <span class="sc">+</span> mean_Y[<span class="dv">3</span>]</span>
+<span id="cb92-4"><a href="#cb92-4" aria-hidden="true" tabindex="-1"></a>Fr_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">4</span>]<span class="sc">*</span>sigma_Y[<span class="dv">4</span>] <span class="sc">+</span> mean_Y[<span class="dv">4</span>]</span>
+<span id="cb92-5"><a href="#cb92-5" aria-hidden="true" tabindex="-1"></a>Ront_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">5</span>]<span class="sc">*</span>sigma_Y[<span class="dv">5</span>] <span class="sc">+</span> mean_Y[<span class="dv">5</span>]</span>
+<span id="cb92-6"><a href="#cb92-6" aria-hidden="true" tabindex="-1"></a>Cylt_est <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(fa1<span class="sc">$</span>scores))[,<span class="dv">6</span>]<span class="sc">*</span>sigma_Y[<span class="dv">6</span>] <span class="sc">+</span> mean_Y[<span class="dv">6</span>]</span>
+<span id="cb92-7"><a href="#cb92-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb92-8"><a href="#cb92-8" aria-hidden="true" tabindex="-1"></a>respostas_est <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(Ra_est,Rz_est,Fz_est,Fr_est,Ront_est,Cylt_est)</span>
+<span id="cb92-9"><a href="#cb92-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(respostas_est)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Ra_est    Rz_est    Fz_est    Fr_est Ront_est Cylt_est
+1 0.1569963 0.9363227 0.4102132 0.2349549 20.27005 16.90680
+2 0.2156033 1.3139072 0.5688397 0.2775296 15.09631 12.08684
+3 0.2427743 1.4589679 0.6206646 0.3006646 18.57343 14.81804
+4 0.2012264 1.2001728 0.6522252 0.2938039 14.97245 12.55947
+5 0.1865007 1.1359319 0.3520861 0.2296920 21.62164 17.33148
+6 0.1869819 1.1018636 0.3145920 0.2321496 29.33821 23.80898</code></pre>
+</div>
+</div>
+<p>Comparing estimates with original response set:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb94"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a>comp_respostas <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Observed =</span> (<span class="fu">stack</span>(<span class="fu">as.vector</span>(respostas)))<span class="sc">$</span>values,</span>
+<span id="cb94-2"><a href="#cb94-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">Predicted =</span> (<span class="fu">stack</span>(<span class="fu">as.vector</span>(respostas_est)))<span class="sc">$</span>values,</span>
+<span id="cb94-3"><a href="#cb94-3" aria-hidden="true" tabindex="-1"></a>                             <span class="at">id =</span> (<span class="fu">stack</span>(<span class="fu">as.vector</span>(respostas)))<span class="sc">$</span>ind)</span>
+<span id="cb94-4"><a href="#cb94-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(comp_respostas) <span class="sc">+</span></span>
+<span id="cb94-5"><a href="#cb94-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">aes</span>(<span class="at">x =</span> Observed, <span class="at">y =</span> Predicted) <span class="sc">+</span></span>
+<span id="cb94-6"><a href="#cb94-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"lm"</span>, <span class="at">color =</span> <span class="st">"grey35"</span>) <span class="sc">+</span></span>
+<span id="cb94-7"><a href="#cb94-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb94-8"><a href="#cb94-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>id, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span> </span>
+<span id="cb94-9"><a href="#cb94-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span> </span>
+<span id="cb94-10"><a href="#cb94-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_cor</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">after_stat</span>(rr.label)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`geom_smooth()` using formula = 'y ~ x'</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="Multivariate_analysis_files/figure-html/unnamed-chunk-60-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="estimating-the-original-variables-considering-optimal-results-and-enabling-practical-implementation-of-results." class="level3">
+<h3 class="anchored" data-anchor-id="estimating-the-original-variables-considering-optimal-results-and-enabling-practical-implementation-of-results.">Estimating the original variables considering optimal results and enabling practical implementation of results.</h3>
+<p>Predicting the mean vetor of PA1, PA2, and PA3 considering the selected Pareto optimal set considering the three-objective optimization results (<em>It is important to understand that this path and some others in sequence depend on python optimization results. See the related code for more detail</em>):</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a>res_tri <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"res_tri.csv"</span>, <span class="at">header =</span> F)</span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(res_tri) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"w1"</span>, <span class="st">"w2"</span>, <span class="st">"w3"</span>, <span class="st">"x1"</span>, <span class="st">"x2"</span>, </span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"x3"</span>, <span class="st">"fza"</span>, <span class="st">"fzt"</span>, <span class="st">"vc"</span>, <span class="st">"PA1"</span>, <span class="st">"PA2"</span>, <span class="st">"PA3"</span>)</span>
+<span id="cb96-4"><a href="#cb96-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb96-5"><a href="#cb96-5" aria-hidden="true" tabindex="-1"></a>res_tri<span class="sc">$</span>E_PA1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_tri[,<span class="dv">4</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">1</span>, Pa1.mean)</span>
+<span id="cb96-6"><a href="#cb96-6" aria-hidden="true" tabindex="-1"></a>res_tri<span class="sc">$</span>E_PA2 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_tri[,<span class="dv">4</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">1</span>, Pa2.mean)</span>
+<span id="cb96-7"><a href="#cb96-7" aria-hidden="true" tabindex="-1"></a>res_tri<span class="sc">$</span>E_PA3 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_tri[,<span class="dv">4</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">1</span>, Pa3.mean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Estimating original responses optimal levels associated with three-objective optimization:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb97"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a>Ra_est3 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">1</span>]<span class="sc">*</span>sigma_Y[<span class="dv">1</span>] <span class="sc">+</span> mean_Y[<span class="dv">1</span>]</span>
+<span id="cb97-2"><a href="#cb97-2" aria-hidden="true" tabindex="-1"></a>Rz_est3 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">2</span>]<span class="sc">*</span>sigma_Y[<span class="dv">2</span>] <span class="sc">+</span> mean_Y[<span class="dv">2</span>]</span>
+<span id="cb97-3"><a href="#cb97-3" aria-hidden="true" tabindex="-1"></a>Fz_est3 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">3</span>]<span class="sc">*</span>sigma_Y[<span class="dv">3</span>] <span class="sc">+</span> mean_Y[<span class="dv">3</span>]</span>
+<span id="cb97-4"><a href="#cb97-4" aria-hidden="true" tabindex="-1"></a>Fr_est3 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">4</span>]<span class="sc">*</span>sigma_Y[<span class="dv">4</span>] <span class="sc">+</span> mean_Y[<span class="dv">4</span>]</span>
+<span id="cb97-5"><a href="#cb97-5" aria-hidden="true" tabindex="-1"></a>Ront_est3 <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">5</span>]<span class="sc">*</span>sigma_Y[<span class="dv">5</span>] <span class="sc">+</span> mean_Y[<span class="dv">5</span>]</span>
+<span id="cb97-6"><a href="#cb97-6" aria-hidden="true" tabindex="-1"></a>Cylt_est3 <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_tri[,<span class="dv">13</span><span class="sc">:</span><span class="dv">15</span>]))[,<span class="dv">6</span>]<span class="sc">*</span>sigma_Y[<span class="dv">6</span>] <span class="sc">+</span> mean_Y[<span class="dv">6</span>]</span>
+<span id="cb97-7"><a href="#cb97-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb97-8"><a href="#cb97-8" aria-hidden="true" tabindex="-1"></a>respostas_est_tri <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(Ra_est3,Rz_est3,Fz_est3,</span>
+<span id="cb97-9"><a href="#cb97-9" aria-hidden="true" tabindex="-1"></a>                                Fr_est3,Ront_est3,Cylt_est3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Practical implementation of three-objective optimization:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb98"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a>ap_3 <span class="ot">&lt;-</span> (res_tri<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">*</span>pi<span class="sc">*</span><span class="dv">18</span><span class="sc">/</span>res_tri<span class="sc">$</span>fzt</span>
+<span id="cb98-2"><a href="#cb98-2" aria-hidden="true" tabindex="-1"></a>n_3 <span class="ot">&lt;-</span> (<span class="dv">1000</span><span class="sc">*</span>res_tri<span class="sc">$</span>vc)<span class="sc">/</span>(pi<span class="sc">*</span><span class="dv">10</span>)</span>
+<span id="cb98-3"><a href="#cb98-3" aria-hidden="true" tabindex="-1"></a>fz_3 <span class="ot">&lt;-</span> (res_tri<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> res_tri<span class="sc">$</span>fzt<span class="sc">^</span><span class="dv">2</span><span class="sc">*</span>(<span class="dv">8</span><span class="sc">/</span><span class="dv">18</span>)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb98-4"><a href="#cb98-4" aria-hidden="true" tabindex="-1"></a>vf_3 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(((res_tri<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">*</span><span class="dv">4</span><span class="sc">*</span>n_3)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (res_tri<span class="sc">$</span>fzt<span class="sc">*</span><span class="dv">4</span><span class="sc">*</span>n_3<span class="sc">*</span><span class="dv">8</span><span class="sc">/</span><span class="dv">18</span>)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb98-5"><a href="#cb98-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb98-6"><a href="#cb98-6" aria-hidden="true" tabindex="-1"></a>res_tri_pract <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(ap_3, n_3, vf_3, respostas_est_tri)</span>
+<span id="cb98-7"><a href="#cb98-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(res_tri_pract) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"ap"</span>, <span class="st">"n"</span>, <span class="st">"vf"</span>, <span class="st">"Ra"</span>, <span class="st">"Rz"</span>, <span class="st">"Fa"</span>, <span class="st">"Fr"</span>, <span class="st">"Ront"</span>, <span class="st">"Cylt"</span>)</span>
+<span id="cb98-8"><a href="#cb98-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb98-9"><a href="#cb98-9" aria-hidden="true" tabindex="-1"></a>res_tri_pract</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           ap         n       vf        Ra        Rz        Fa        Fr
+1  0.09246922 1732.0762 348.2372 0.1609731 0.9756685 0.4347177 0.2369619
+2  0.08984390  932.5935 191.0236 0.1879659 1.1397944 0.5733761 0.2705298
+3  0.13468796 1792.9494 252.6303 0.1467639 0.9104062 0.3416392 0.2106402
+4  0.11990605 1373.2173 232.0080 0.1541507 0.9463313 0.4349580 0.2317867
+5  0.09246922 1732.0762 348.2372 0.1609731 0.9756685 0.4347177 0.2369619
+6  0.10219144 1071.7203 211.0980 0.1772625 1.0774745 0.5400908 0.2603896
+7  0.13468796 1792.9494 252.6303 0.1467639 0.9104062 0.3416392 0.2106402
+8  0.09536150  982.5355 169.2993 0.1698828 1.0403231 0.4941978 0.2479378
+9  0.12665283 1297.3050 171.0931 0.1399015 0.8717422 0.3681240 0.2122839
+10 0.14140380 1529.4438 196.7296 0.1369904 0.8555449 0.3388352 0.2057663
+       Ront     Cylt
+1  17.07738 14.19113
+2  13.68992 11.36917
+3  16.14231 13.25907
+4  14.48979 12.08395
+5  17.07738 14.19113
+6  13.70083 11.42911
+7  16.14231 13.25907
+8  13.66004 11.33732
+9  14.01209 11.65060
+10 14.70271 12.17745</code></pre>
+</div>
+</div>
+<p>Predicting the mean vetor of PA1, PA2, and PA3 considering the selected Pareto optimal set considering the four-objective optimization results:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb100"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb100-1"><a href="#cb100-1" aria-hidden="true" tabindex="-1"></a>res_four <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"res_four.csv"</span>, <span class="at">header =</span> F)</span>
+<span id="cb100-2"><a href="#cb100-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(res_four) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"w1"</span>, <span class="st">"w2"</span>, <span class="st">"w3"</span>, <span class="st">"w4"</span>, <span class="st">"x1"</span>, <span class="st">"x2"</span>, </span>
+<span id="cb100-3"><a href="#cb100-3" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"x3"</span>, <span class="st">"fza"</span>, <span class="st">"fzt"</span>, <span class="st">"vc"</span>, <span class="st">"PA1"</span>, <span class="st">"PA2"</span>, <span class="st">"PA3"</span>, <span class="st">"MRR"</span>)</span>
+<span id="cb100-4"><a href="#cb100-4" aria-hidden="true" tabindex="-1"></a>res_four<span class="sc">$</span>MRR <span class="ot">&lt;-</span> <span class="sc">-</span>res_four<span class="sc">$</span>MRR </span>
+<span id="cb100-5"><a href="#cb100-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb100-6"><a href="#cb100-6" aria-hidden="true" tabindex="-1"></a>res_four<span class="sc">$</span>E_PA1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_four[,<span class="dv">5</span><span class="sc">:</span><span class="dv">7</span>], <span class="dv">1</span>, Pa1.mean)</span>
+<span id="cb100-7"><a href="#cb100-7" aria-hidden="true" tabindex="-1"></a>res_four<span class="sc">$</span>E_PA2 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_four[,<span class="dv">5</span><span class="sc">:</span><span class="dv">7</span>], <span class="dv">1</span>, Pa2.mean)</span>
+<span id="cb100-8"><a href="#cb100-8" aria-hidden="true" tabindex="-1"></a>res_four<span class="sc">$</span>E_PA3 <span class="ot">&lt;-</span> <span class="fu">apply</span>(res_four[,<span class="dv">5</span><span class="sc">:</span><span class="dv">7</span>], <span class="dv">1</span>, Pa3.mean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Estimating original responses optimal levels associated with four-objective optimization:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb101"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb101-1"><a href="#cb101-1" aria-hidden="true" tabindex="-1"></a>Ra_est4 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">1</span>]<span class="sc">*</span>sigma_Y[<span class="dv">1</span>] <span class="sc">+</span> mean_Y[<span class="dv">1</span>]</span>
+<span id="cb101-2"><a href="#cb101-2" aria-hidden="true" tabindex="-1"></a>Rz_est4 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">2</span>]<span class="sc">*</span>sigma_Y[<span class="dv">2</span>] <span class="sc">+</span> mean_Y[<span class="dv">2</span>]</span>
+<span id="cb101-3"><a href="#cb101-3" aria-hidden="true" tabindex="-1"></a>Fz_est4 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">3</span>]<span class="sc">*</span>sigma_Y[<span class="dv">3</span>] <span class="sc">+</span> mean_Y[<span class="dv">3</span>]</span>
+<span id="cb101-4"><a href="#cb101-4" aria-hidden="true" tabindex="-1"></a>Fr_est4 <span class="ot">&lt;-</span>   <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">4</span>]<span class="sc">*</span>sigma_Y[<span class="dv">4</span>] <span class="sc">+</span> mean_Y[<span class="dv">4</span>]</span>
+<span id="cb101-5"><a href="#cb101-5" aria-hidden="true" tabindex="-1"></a>Ront_est4 <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">5</span>]<span class="sc">*</span>sigma_Y[<span class="dv">5</span>] <span class="sc">+</span> mean_Y[<span class="dv">5</span>]</span>
+<span id="cb101-6"><a href="#cb101-6" aria-hidden="true" tabindex="-1"></a>Cylt_est4 <span class="ot">&lt;-</span> <span class="fu">t</span>(L <span class="sc">%*%</span> <span class="fu">t</span>(res_four[,<span class="dv">15</span><span class="sc">:</span><span class="dv">17</span>]))[,<span class="dv">6</span>]<span class="sc">*</span>sigma_Y[<span class="dv">6</span>] <span class="sc">+</span> mean_Y[<span class="dv">6</span>]</span>
+<span id="cb101-7"><a href="#cb101-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb101-8"><a href="#cb101-8" aria-hidden="true" tabindex="-1"></a>respostas_est_four <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(Ra_est4,Rz_est4,Fz_est4,</span>
+<span id="cb101-9"><a href="#cb101-9" aria-hidden="true" tabindex="-1"></a>                                Fr_est4,Ront_est4,Cylt_est4)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Practical implementation of four-objective optimization:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb102"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb102-1"><a href="#cb102-1" aria-hidden="true" tabindex="-1"></a>ap_4 <span class="ot">&lt;-</span> (res_four<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">*</span>pi<span class="sc">*</span><span class="dv">18</span><span class="sc">/</span>res_four<span class="sc">$</span>fzt</span>
+<span id="cb102-2"><a href="#cb102-2" aria-hidden="true" tabindex="-1"></a>n_4 <span class="ot">&lt;-</span> (<span class="dv">1000</span><span class="sc">*</span>res_four<span class="sc">$</span>vc)<span class="sc">/</span>(pi<span class="sc">*</span><span class="dv">10</span>)</span>
+<span id="cb102-3"><a href="#cb102-3" aria-hidden="true" tabindex="-1"></a>fz_4 <span class="ot">&lt;-</span> (res_four<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> res_four<span class="sc">$</span>fzt<span class="sc">^</span><span class="dv">2</span><span class="sc">*</span>(<span class="dv">8</span><span class="sc">/</span><span class="dv">18</span>)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb102-4"><a href="#cb102-4" aria-hidden="true" tabindex="-1"></a>vf_4 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(((res_four<span class="sc">$</span>fza<span class="sc">/</span><span class="dv">1000</span>)<span class="sc">*</span><span class="dv">4</span><span class="sc">*</span>n_4)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (res_four<span class="sc">$</span>fzt<span class="sc">*</span><span class="dv">4</span><span class="sc">*</span>n_4<span class="sc">*</span><span class="dv">8</span><span class="sc">/</span><span class="dv">18</span>)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb102-5"><a href="#cb102-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb102-6"><a href="#cb102-6" aria-hidden="true" tabindex="-1"></a>res_four_pract <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(ap_4, n_4, vf_4, respostas_est_four)</span>
+<span id="cb102-7"><a href="#cb102-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(res_four_pract) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"ap"</span>, <span class="st">"n"</span>, <span class="st">"vf"</span>, <span class="st">"Ra"</span>, <span class="st">"Rz"</span>, <span class="st">"Fa"</span>, <span class="st">"Fr"</span>, <span class="st">"Ront"</span>, <span class="st">"Cylt"</span>)</span>
+<span id="cb102-8"><a href="#cb102-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb102-9"><a href="#cb102-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(res_four_pract)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          ap         n       vf        Ra        Rz        Fa        Fr
+1 0.09253418 1693.7269 331.2200 0.1588993 0.9637680 0.4330458 0.2358000
+2 0.11309734 1526.9325 271.4574 0.1547040 0.9456849 0.4263565 0.2314189
+3 0.09896017 1138.9128 242.9699 0.1796261 1.0886038 0.5481788 0.2633944
+4 0.09424778 1010.9522 215.6713 0.1885819 1.1400974 0.5821607 0.2731203
+5 0.08953539  946.3353 201.8861 0.1925635 1.1639995 0.5935460 0.2765424
+6 0.09253418 1693.7269 331.2200 0.1588993 0.9637680 0.4330458 0.2358000
+      Ront     Cylt
+1 16.85852 14.03180
+2 15.54912 12.95105
+3 14.10788 11.77091
+4 13.96104 11.62680
+5 13.87690 11.53168
+6 16.85852 14.03180</code></pre>
+</div>
+</div>
+</section>
+<section id="power-estimation" class="level3">
+<h3 class="anchored" data-anchor-id="power-estimation">Power estimation</h3>
+<p>Cutting power of the experimental results:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb104"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb104-1"><a href="#cb104-1" aria-hidden="true" tabindex="-1"></a>plan.ccd<span class="sc">$</span>Pc <span class="ot">&lt;-</span> (respostas<span class="sc">$</span>Fr<span class="sc">*</span>(plan.ccd<span class="sc">$</span>x3<span class="sc">*</span><span class="dv">15</span> <span class="sc">+</span> <span class="dv">50</span>))<span class="sc">/</span><span class="dv">60</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Minimum and maximum cutting power of the experimental results and related levels of variables:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb105"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb105-1"><a href="#cb105-1" aria-hidden="true" tabindex="-1"></a><span class="fu">max</span>(plan.ccd<span class="sc">$</span>Pc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3554115</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb107"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb107-1"><a href="#cb107-1" aria-hidden="true" tabindex="-1"></a><span class="fu">min</span>(plan.ccd<span class="sc">$</span>Pc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.08019064</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb109"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb109-1"><a href="#cb109-1" aria-hidden="true" tabindex="-1"></a>plan.ccd[<span class="fu">which.max</span>(plan.ccd<span class="sc">$</span>Pc),]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   run.order std.order  fza  fzt       vc lto lb Q       Pa1       Pa2
+38         6         6 0.15 0.15 85.67621  29  0 0 0.4096802 0.3762371
+          Pa3        Pc
+38 0.01169406 0.3554115
+
+Data are stored in coded form using these coding formulas ...
+x1 ~ (fza - 0.15)/0.05
+x2 ~ (fzt - 0.15)/0.05
+x3 ~ (vc - 50)/15
+z1 ~ (lto - 29)/2
+z2 ~ (lb)/1
+z3 ~ (Q)/1</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb111"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb111-1"><a href="#cb111-1" aria-hidden="true" tabindex="-1"></a>plan.ccd[<span class="fu">which.min</span>(plan.ccd<span class="sc">$</span>Pc),]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   run.order std.order  fza  fzt       vc lto lb Q      Pa1       Pa2      Pa3
+37         5         5 0.15 0.15 14.32379  29  0 0 1.502136 -1.901013 1.579754
+           Pc
+37 0.08019064
+
+Data are stored in coded form using these coding formulas ...
+x1 ~ (fza - 0.15)/0.05
+x2 ~ (fzt - 0.15)/0.05
+x3 ~ (vc - 50)/15
+z1 ~ (lto - 29)/2
+z2 ~ (lb)/1
+z3 ~ (Q)/1</code></pre>
+</div>
+</div>
+<p>Cutting power of three objective optimization:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb113"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb113-1"><a href="#cb113-1" aria-hidden="true" tabindex="-1"></a>Pc_3 <span class="ot">&lt;-</span> Fr_est3<span class="sc">*</span>res_tri<span class="sc">$</span>vc<span class="sc">/</span><span class="dv">60</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Minimum and maximum cutting power of the three-objective optimization and related levels of variables:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb114"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb114-1"><a href="#cb114-1" aria-hidden="true" tabindex="-1"></a><span class="fu">max</span>(Pc_3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.2149039</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb116"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb116-1"><a href="#cb116-1" aria-hidden="true" tabindex="-1"></a><span class="fu">min</span>(Pc_3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1275527</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb118"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb118-1"><a href="#cb118-1" aria-hidden="true" tabindex="-1"></a>res_tri[<span class="fu">which.max</span>(Pc_3),]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  w1 w2 w3        x1         x2        x3       fza       fzt       vc     PA1
+1  1  0  0 0.6985588 -0.7381818 0.2943186 0.1849279 0.1130909 54.41478 1.32974
+       PA2    PA3     E_PA1      E_PA2      E_PA3
+1 1.620534 1.5528 -0.645304 -0.1661833 -0.4751966</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb120"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb120-1"><a href="#cb120-1" aria-hidden="true" tabindex="-1"></a>res_tri[<span class="fu">which.min</span>(Pc_3),]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  w1        w2        w3        x1        x2        x3      fza        fzt
+8  0 0.6666667 0.3333333 0.2689401 -1.061542 -1.275516 0.163447 0.09692288
+        vc      PA1      PA2      PA3      E_PA1     E_PA2      E_PA3
+8 30.86726 1.628589 1.175838 1.762985 -0.2950986 -1.141546 -0.2027534</code></pre>
+</div>
+</div>
+<p>Comparison of power:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb122"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb122-1"><a href="#cb122-1" aria-hidden="true" tabindex="-1"></a>Power <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Pc =</span> <span class="fu">c</span>(plan.ccd<span class="sc">$</span>Pc, Pc_3),</span>
+<span id="cb122-2"><a href="#cb122-2" aria-hidden="true" tabindex="-1"></a>                    <span class="at">id =</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">"Experimental"</span>, <span class="fu">nrow</span>(plan.ccd)),</span>
+<span id="cb122-3"><a href="#cb122-3" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">rep</span>(<span class="st">"Three-obj"</span>, <span class="fu">length</span>(Pc_3))))</span>
+<span id="cb122-4"><a href="#cb122-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb122-5"><a href="#cb122-5" aria-hidden="true" tabindex="-1"></a><span class="fu">var.test</span>(plan.ccd<span class="sc">$</span>Pc, Pc_3) <span class="co"># F test for ratio of variances</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    F test to compare two variances
+
+data:  plan.ccd$Pc and Pc_3
+F = 3.8012, num df = 46, denom df = 9, p-value = 0.03719
+alternative hypothesis: true ratio of variances is not equal to 1
+95 percent confidence interval:
+ 1.091147 9.143147
+sample estimates:
+ratio of variances 
+          3.801168 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb124"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb124-1"><a href="#cb124-1" aria-hidden="true" tabindex="-1"></a>(<span class="fu">max</span>(plan.ccd<span class="sc">$</span>Pc) <span class="sc">-</span> <span class="fu">max</span>(Pc_3))<span class="sc">/</span><span class="fu">max</span>(plan.ccd<span class="sc">$</span>Pc) <span class="co"># power savings</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3953379</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb126"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb126-1"><a href="#cb126-1" aria-hidden="true" tabindex="-1"></a><span class="co"># shapiro.test(plan.ccd$Pc)</span></span>
+<span id="cb126-2"><a href="#cb126-2" aria-hidden="true" tabindex="-1"></a><span class="co"># shapiro.test(Pc_3)</span></span>
+<span id="cb126-3"><a href="#cb126-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb126-4"><a href="#cb126-4" aria-hidden="true" tabindex="-1"></a>mean_Pc_exp <span class="ot">&lt;-</span> <span class="fu">mean</span>(plan.ccd<span class="sc">$</span>Pc)</span>
+<span id="cb126-5"><a href="#cb126-5" aria-hidden="true" tabindex="-1"></a>sd_Pc_exp <span class="ot">&lt;-</span> <span class="fu">sd</span>(plan.ccd<span class="sc">$</span>Pc)</span>
+<span id="cb126-6"><a href="#cb126-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb126-7"><a href="#cb126-7" aria-hidden="true" tabindex="-1"></a>mean_Pc_3 <span class="ot">&lt;-</span> <span class="fu">mean</span>(Pc_3)</span>
+<span id="cb126-8"><a href="#cb126-8" aria-hidden="true" tabindex="-1"></a>sd_Pc_3 <span class="ot">&lt;-</span> <span class="fu">sd</span>(Pc_3)</span>
+<span id="cb126-9"><a href="#cb126-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb126-10"><a href="#cb126-10" aria-hidden="true" tabindex="-1"></a>power_density <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Density =</span> <span class="fu">c</span>(<span class="fu">dnorm</span>(<span class="fu">seq</span>(<span class="fl">0.0</span>, <span class="fl">0.45</span>, <span class="at">length =</span> <span class="dv">100</span>),</span>
+<span id="cb126-11"><a href="#cb126-11" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">mean =</span> mean_Pc_exp,</span>
+<span id="cb126-12"><a href="#cb126-12" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">sd =</span> sd_Pc_exp),</span>
+<span id="cb126-13"><a href="#cb126-13" aria-hidden="true" tabindex="-1"></a>                                        <span class="fu">dnorm</span>(<span class="fu">seq</span>(<span class="fl">0.0</span>, <span class="fl">0.45</span>, <span class="at">length =</span> <span class="dv">100</span>), </span>
+<span id="cb126-14"><a href="#cb126-14" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">mean =</span> mean_Pc_3,</span>
+<span id="cb126-15"><a href="#cb126-15" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">sd =</span> sd_Pc_3)),</span>
+<span id="cb126-16"><a href="#cb126-16" aria-hidden="true" tabindex="-1"></a>                            <span class="at">Power =</span> <span class="fu">rep</span>(<span class="fu">seq</span>(<span class="fl">0.0</span>, <span class="fl">0.45</span>, <span class="at">length =</span> <span class="dv">100</span>), <span class="at">times =</span> <span class="dv">2</span>),</span>
+<span id="cb126-17"><a href="#cb126-17" aria-hidden="true" tabindex="-1"></a>                            <span class="at">id =</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">"Experimental"</span>, <span class="dv">100</span>),</span>
+<span id="cb126-18"><a href="#cb126-18" aria-hidden="true" tabindex="-1"></a>                                   <span class="fu">rep</span>(<span class="st">"Three-obj"</span>, <span class="dv">100</span>)))</span>
+<span id="cb126-19"><a href="#cb126-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb126-20"><a href="#cb126-20" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span> </span>
+<span id="cb126-21"><a href="#cb126-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">data =</span> Power, <span class="fu">aes</span>(<span class="at">x =</span> Pc, <span class="at">colour=</span>id), <span class="at">lty =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb126-22"><a href="#cb126-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> power_density, <span class="fu">aes</span>(<span class="at">y =</span> Density, <span class="at">x =</span> Power, <span class="at">colour =</span> id), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> </span>
+<span id="cb126-23"><a href="#cb126-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"orangered"</span>, <span class="st">"seagreen3"</span>)) <span class="sc">+</span></span>
+<span id="cb126-24"><a href="#cb126-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Pc [kW]"</span>) <span class="sc">+</span></span>
+<span id="cb126-25"><a href="#cb126-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> <span class="fu">data.frame</span>(<span class="at">y =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="fu">nrow</span>(plan.ccd)), </span>
+<span id="cb126-26"><a href="#cb126-26" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">Pc =</span> plan.ccd<span class="sc">$</span>Pc), </span>
+<span id="cb126-27"><a href="#cb126-27" aria-hidden="true" tabindex="-1"></a>             <span class="fu">aes</span>(<span class="at">y =</span> y, <span class="at">x =</span> Pc), <span class="at">alpha =</span> .<span class="dv">5</span>, </span>
+<span id="cb126-28"><a href="#cb126-28" aria-hidden="true" tabindex="-1"></a>             <span class="at">col =</span> <span class="st">"orangered"</span>, </span>
+<span id="cb126-29"><a href="#cb126-29" aria-hidden="true" tabindex="-1"></a>             <span class="at">size =</span> <span class="dv">3</span>, <span class="at">shape =</span> <span class="dv">1</span>) <span class="sc">+</span> </span>
+<span id="cb126-30"><a href="#cb126-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> <span class="fu">data.frame</span>(<span class="at">y =</span> <span class="fu">rep</span>(<span class="dv">0</span>,<span class="fu">length</span>(Pc_3)), </span>
+<span id="cb126-31"><a href="#cb126-31" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">Pc =</span> Pc_3), </span>
+<span id="cb126-32"><a href="#cb126-32" aria-hidden="true" tabindex="-1"></a>             <span class="fu">aes</span>(<span class="at">y =</span> y, <span class="at">x =</span> Pc), <span class="at">alpha =</span> .<span class="dv">7</span>, </span>
+<span id="cb126-33"><a href="#cb126-33" aria-hidden="true" tabindex="-1"></a>             <span class="at">col =</span> <span class="st">"seagreen3"</span>, </span>
+<span id="cb126-34"><a href="#cb126-34" aria-hidden="true" tabindex="-1"></a>             <span class="at">size =</span> <span class="dv">10</span>, <span class="at">shape =</span> <span class="st">"*"</span>) <span class="sc">+</span> </span>
+<span id="cb126-35"><a href="#cb126-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Multivariate_analysis_files/figure-html/unnamed-chunk-72-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
 </section>
 
 </main>

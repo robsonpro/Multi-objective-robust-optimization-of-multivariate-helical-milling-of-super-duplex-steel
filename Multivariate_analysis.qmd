@@ -83,7 +83,7 @@ r1
 
 Visualizing correlation:
 
-```{r}
+```{r message = FALSE}
 ggpairs(respostas) + theme_bw()
 ```
 
@@ -134,7 +134,6 @@ qgraph(fa1$loadings,
        negCol = "lightcoral")
 
 ```
-
 
 Scores of the estimated factors:
 
@@ -1757,7 +1756,7 @@ Pa2.rmse = function(x, TT) {
 }
 ```
 
-ploting the RMSE of PA2:
+Plotting the RMSE of PA2:
 
 ```{r, warning= FALSE}
 kk1 <- rep(0,  nrow(xx))
@@ -2601,3 +2600,215 @@ p9 <- ggplot(data = dataPa3plo11,
 
 ggarrange(p7,p8,p9, nrow = 1)
 ```
+
+### Estimating the original variables through factors
+
+Loadings to estimate the original variables:
+
+```{r, results = "hide"}
+L <- print(fa1$loadings, cutoff=0)
+```
+
+Mean and standard deviation of measured responses:
+
+```{r}
+mean_Y <- colMeans(respostas)
+sigma_Y <- apply(respostas, 2, sd)
+```
+
+Estimating observable response data through factor model:
+
+```{r}
+Ra_est <- t(L %*% t(fa1$scores))[,1]*sigma_Y[1] + mean_Y[1]
+Rz_est <- t(L %*% t(fa1$scores))[,2]*sigma_Y[2] + mean_Y[2]
+Fz_est <- t(L %*% t(fa1$scores))[,3]*sigma_Y[3] + mean_Y[3]
+Fr_est <- t(L %*% t(fa1$scores))[,4]*sigma_Y[4] + mean_Y[4]
+Ront_est <- t(L %*% t(fa1$scores))[,5]*sigma_Y[5] + mean_Y[5]
+Cylt_est <- t(L %*% t(fa1$scores))[,6]*sigma_Y[6] + mean_Y[6]
+
+respostas_est <- data.frame(Ra_est,Rz_est,Fz_est,Fr_est,Ront_est,Cylt_est)
+head(respostas_est)
+```
+
+Comparing estimates with original response set:
+
+```{r}
+comp_respostas <- data.frame(Observed = (stack(as.vector(respostas)))$values,
+                             Predicted = (stack(as.vector(respostas_est)))$values,
+                             id = (stack(as.vector(respostas)))$ind)
+ggplot(comp_respostas) +
+  aes(x = Observed, y = Predicted) +
+  geom_smooth(method = "lm", color = "grey35") +
+  geom_point(color = "black") +
+  facet_wrap(~id, scales = "free") + 
+  theme_bw() + 
+  stat_cor(aes(label = after_stat(rr.label)))
+
+```
+
+### Estimating the original variables considering optimal results and enabling practical implementation of results.
+
+Predicting the mean vetor of PA1, PA2, and PA3 considering the selected Pareto optimal set considering the three-objective optimization results (*It is important to understand that this path and some others in sequence depend on python optimization results. See the related code for more detail*):
+
+```{r}
+res_tri <- read.csv("res_tri.csv", header = F)
+colnames(res_tri) <- c("w1", "w2", "w3", "x1", "x2", 
+                       "x3", "fza", "fzt", "vc", "PA1", "PA2", "PA3")
+
+res_tri$E_PA1 <- apply(res_tri[,4:6], 1, Pa1.mean)
+res_tri$E_PA2 <- apply(res_tri[,4:6], 1, Pa2.mean)
+res_tri$E_PA3 <- apply(res_tri[,4:6], 1, Pa3.mean)
+```
+
+Estimating original responses optimal levels associated with three-objective optimization:
+
+```{r}
+Ra_est3 <-   t(L %*% t(res_tri[,13:15]))[,1]*sigma_Y[1] + mean_Y[1]
+Rz_est3 <-   t(L %*% t(res_tri[,13:15]))[,2]*sigma_Y[2] + mean_Y[2]
+Fz_est3 <-   t(L %*% t(res_tri[,13:15]))[,3]*sigma_Y[3] + mean_Y[3]
+Fr_est3 <-   t(L %*% t(res_tri[,13:15]))[,4]*sigma_Y[4] + mean_Y[4]
+Ront_est3 <- t(L %*% t(res_tri[,13:15]))[,5]*sigma_Y[5] + mean_Y[5]
+Cylt_est3 <- t(L %*% t(res_tri[,13:15]))[,6]*sigma_Y[6] + mean_Y[6]
+
+respostas_est_tri <- data.frame(Ra_est3,Rz_est3,Fz_est3,
+                                Fr_est3,Ront_est3,Cylt_est3)
+```
+
+Practical implementation of three-objective optimization:
+
+```{r}
+ap_3 <- (res_tri$fza/1000)*pi*18/res_tri$fzt
+n_3 <- (1000*res_tri$vc)/(pi*10)
+fz_3 <- (res_tri$fza/1000)^2 + res_tri$fzt^2*(8/18)^2
+vf_3 <- sqrt(((res_tri$fza/1000)*4*n_3)^2 + (res_tri$fzt*4*n_3*8/18)^2)
+
+res_tri_pract <- data.frame(ap_3, n_3, vf_3, respostas_est_tri)
+colnames(res_tri_pract) <- c("ap", "n", "vf", "Ra", "Rz", "Fa", "Fr", "Ront", "Cylt")
+
+res_tri_pract
+```
+Predicting the mean vetor of PA1, PA2, and PA3 considering the selected Pareto optimal set considering the four-objective optimization results:
+
+```{r}
+res_four <- read.csv("res_four.csv", header = F)
+colnames(res_four) <- c("w1", "w2", "w3", "w4", "x1", "x2", 
+                       "x3", "fza", "fzt", "vc", "PA1", "PA2", "PA3", "MRR")
+res_four$MRR <- -res_four$MRR 
+
+res_four$E_PA1 <- apply(res_four[,5:7], 1, Pa1.mean)
+res_four$E_PA2 <- apply(res_four[,5:7], 1, Pa2.mean)
+res_four$E_PA3 <- apply(res_four[,5:7], 1, Pa3.mean)
+```
+
+Estimating original responses optimal levels associated with four-objective optimization:
+
+```{r}
+Ra_est4 <-   t(L %*% t(res_four[,15:17]))[,1]*sigma_Y[1] + mean_Y[1]
+Rz_est4 <-   t(L %*% t(res_four[,15:17]))[,2]*sigma_Y[2] + mean_Y[2]
+Fz_est4 <-   t(L %*% t(res_four[,15:17]))[,3]*sigma_Y[3] + mean_Y[3]
+Fr_est4 <-   t(L %*% t(res_four[,15:17]))[,4]*sigma_Y[4] + mean_Y[4]
+Ront_est4 <- t(L %*% t(res_four[,15:17]))[,5]*sigma_Y[5] + mean_Y[5]
+Cylt_est4 <- t(L %*% t(res_four[,15:17]))[,6]*sigma_Y[6] + mean_Y[6]
+
+respostas_est_four <- data.frame(Ra_est4,Rz_est4,Fz_est4,
+                                Fr_est4,Ront_est4,Cylt_est4)
+```
+
+Practical implementation of four-objective optimization:
+
+```{r}
+ap_4 <- (res_four$fza/1000)*pi*18/res_four$fzt
+n_4 <- (1000*res_four$vc)/(pi*10)
+fz_4 <- (res_four$fza/1000)^2 + res_four$fzt^2*(8/18)^2
+vf_4 <- sqrt(((res_four$fza/1000)*4*n_4)^2 + (res_four$fzt*4*n_4*8/18)^2)
+
+res_four_pract <- data.frame(ap_4, n_4, vf_4, respostas_est_four)
+colnames(res_four_pract) <- c("ap", "n", "vf", "Ra", "Rz", "Fa", "Fr", "Ront", "Cylt")
+
+head(res_four_pract)
+```
+### Power estimation
+
+Cutting power of the experimental results:
+
+```{r}
+plan.ccd$Pc <- (respostas$Fr*(plan.ccd$x3*15 + 50))/60
+```
+
+Minimum and maximum cutting power of the experimental results and related levels of variables:
+
+```{r}
+max(plan.ccd$Pc)
+min(plan.ccd$Pc)
+plan.ccd[which.max(plan.ccd$Pc),]
+plan.ccd[which.min(plan.ccd$Pc),]
+```
+
+Cutting power of three objective optimization:
+
+```{r}
+Pc_3 <- Fr_est3*res_tri$vc/60
+```
+
+Minimum and maximum cutting power of the three-objective optimization and related levels of variables:
+
+```{r}
+max(Pc_3)
+min(Pc_3)
+res_tri[which.max(Pc_3),]
+res_tri[which.min(Pc_3),]
+```
+
+Comparison of power:
+
+```{r}
+Power <- data.frame(Pc = c(plan.ccd$Pc, Pc_3),
+                    id = c(rep("Experimental", nrow(plan.ccd)),
+                           rep("Three-obj", length(Pc_3))))
+
+var.test(plan.ccd$Pc, Pc_3) # F test for ratio of variances
+
+(max(plan.ccd$Pc) - max(Pc_3))/max(plan.ccd$Pc) # power savings
+
+```
+
+```{r}
+# shapiro.test(plan.ccd$Pc)
+# shapiro.test(Pc_3)
+
+mean_Pc_exp <- mean(plan.ccd$Pc)
+sd_Pc_exp <- sd(plan.ccd$Pc)
+
+mean_Pc_3 <- mean(Pc_3)
+sd_Pc_3 <- sd(Pc_3)
+
+power_density <- data.frame(Density = c(dnorm(seq(0.0, 0.45, length = 100),
+                                              mean = mean_Pc_exp,
+                                              sd = sd_Pc_exp),
+                                        dnorm(seq(0.0, 0.45, length = 100), 
+                                              mean = mean_Pc_3,
+                                              sd = sd_Pc_3)),
+                            Power = rep(seq(0.0, 0.45, length = 100), times = 2),
+                            id = c(rep("Experimental", 100),
+                                   rep("Three-obj", 100)))
+
+ggplot() + 
+  geom_density(data = Power, aes(x = Pc, colour=id), lty = 2) +
+  geom_line(data = power_density, aes(y = Density, x = Power, colour = id), linewidth = 1) + 
+  scale_colour_manual(values = c("orangered", "seagreen3")) +
+  xlab("Pc [kW]") +
+  geom_point(data = data.frame(y = rep(0, nrow(plan.ccd)), 
+                                       Pc = plan.ccd$Pc), 
+             aes(y = y, x = Pc), alpha = .5, 
+             col = "orangered", 
+             size = 3, shape = 1) + 
+  geom_point(data = data.frame(y = rep(0,length(Pc_3)), 
+                                       Pc = Pc_3), 
+             aes(y = y, x = Pc), alpha = .7, 
+             col = "seagreen3", 
+             size = 10, shape = "*") + 
+  theme_bw()
+```
+
+
+
