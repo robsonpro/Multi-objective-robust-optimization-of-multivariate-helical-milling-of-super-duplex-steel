@@ -15,16 +15,10 @@ Loading libraries:
 
 ```{r message=FALSE}
 library(psych)
-library(GPArotation)
 library(corrplot)
-library(FactoMineR)
-library(factoextra)
 library(ggplot2) 
 library(GGally)
 library(Hmisc)
-library(ClustOfVar)
-library(ClustVarLV)
-library(MVN)
 library(qgraph)
 ```
 
@@ -150,7 +144,6 @@ Loading libraries:
 
 ```{r message=FALSE}
 library(rsm)
-library(olsrr)
 library(ggplot2)
 library(ggpubr)
 library(NlcOptim)
@@ -2687,6 +2680,7 @@ colnames(res_tri_pract) <- c("ap", "n", "vf", "Ra", "Rz", "Fa", "Fr", "Ront", "C
 
 res_tri_pract
 ```
+
 Predicting the mean vetor of PA1, PA2, and PA3 considering the selected Pareto optimal set considering the four-objective optimization results:
 
 ```{r}
@@ -2727,6 +2721,7 @@ colnames(res_four_pract) <- c("ap", "n", "vf", "Ra", "Rz", "Fa", "Fr", "Ront", "
 
 head(res_four_pract)
 ```
+
 ### Power estimation
 
 Cutting power of the experimental results:
@@ -2809,6 +2804,3 @@ ggplot() +
              size = 10, shape = "*") + 
   theme_bw()
 ```
-
-
-
